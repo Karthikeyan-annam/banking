@@ -1,0 +1,16 @@
+{
+  "name": "banking-system-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Unified workspace runner for Spring Boot Core Banking and React Frontend",
+  "scripts": {
+    "start": "node wait-and-start.js",
+    "backend": "mvn spring-boot:run",
+    "frontend": "npm --prefix frontend run dev",
+    "dev": "concurrently -k -n \"BACKEND,FRONTEND\" -c \"blue.bold,green.bold\" \"npm run backend\" \"node wait-and-start.js --frontend-only\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "wait-on": "^7.2.0"
+  }
+}

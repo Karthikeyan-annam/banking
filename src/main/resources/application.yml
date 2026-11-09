@@ -1,0 +1,98 @@
+# ═══════════════════════════════════════════════════════════════
+#  Secure Core Banking System — Application Configuration
+#  MySQL Edition (${DB_NAME:bankinf} @ ${DB_HOST:localhost}:${DB_PORT:3306})
+# ═══════════════════════════════════════════════════════════════
+
+spring:
+  application:
+    name: core-banking-system
+
+  # ── DataSource (MySQL) ──────────────────────────────────────
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:banking}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:Mysql@123}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      # Maximum pool size: tune for your server's connection limit
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000       # 5 minutes
+      connection-timeout: 20000  # 20 seconds — fail fast rather than queue
+      max-lifetime: 1800000      # 30 minutes
+      pool-name: BankingHikariPool
+      # Critical for banking: auto-commit OFF so @Transactional owns every commit
+      auto-commit: false
+
+  # ── JPA / Hibernate ─────────────────────────────────────────
+  jpa:
+    hibernate:
+      # validate: Hibernate checks schema vs. entities but does NOT modify the DB.
+      # Flyway owns schema changes; Hibernate only validates them.
+      ddl-auto: validate
+    show-sql: false              # Set true only during local development
+    open-in-view: false          # Disable OSIV anti-pattern — no lazy loads in controllers
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+        use_sql_comments: true
+        # Batching: improves bulk-write throughput for audit log inserts
+        jdbc:
+          batch_size: 25
+          order_inserts: true
+          order_updates: true
+        # Second-level cache disabled — financial data must always be fresh
+        cache:
+          use_second_level_cache: false
+          use_query_cache: false
+
+  # ── Flyway (Database Migrations) ───────────────────────────
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    out-of-order: false          # Enforce strict migration ordering
+    validate-on-migrate: true
+
+# ── JWT Configuration ────────────────────────────────────────
+# The secret MUST be a Base64-encoded string of at least 512 bits
+# (64 bytes) for HS512. Generate with:
+#   openssl rand -base64 64
+application:
+  security:
+    jwt:
+      secret-key: ${JWT_SECRET:your-256-bit-or-larger-base64-encoded-secret-key-replace-in-production-envvar}
+      expiration: 86400000       # 24 hours in milliseconds
+      refresh-token:
+        expiration: 604800000    # 7 days in milliseconds
+
+# ── Server ──────────────────────────────────────────────────
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    # Hide internal stack traces from API consumers
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
+
+# ── Actuator ────────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics
+    endpoint:
+      health:
+        show-details: when_authorized
+
+# ── Logging ─────────────────────────────────────────────────
+logging:
+  level:
+    root: INFO
+    com.banking: DEBUG
+    org.springframework.security: INFO
+    org.hibernate.SQL: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

@@ -1,0 +1,76 @@
+services:
+  # ============================================================================
+  # 1. PostgreSQL Database Service
+  # ============================================================================
+  banking_postgres:
+    image: postgres:16-alpine
+    container_name: banking_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: banking_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d banking_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - banking_net
+
+  # ============================================================================
+  # 2. Spring Boot Core Banking Backend Service
+  # ============================================================================
+  banking_backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: banking_backend
+    restart: unless-stopped
+    depends_on:
+      banking_postgres:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8080
+      DB_HOST: banking_postgres
+      DB_PORT: 5432
+      DB_NAME: banking_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgrespassword
+      # Minimum 512-bit HS512 Base64 secret key
+      JWT_SECRET: c2VjdXJlLWNvcmUtYmFua2luZy1zeXN0ZW0tc2VjdXJpdHkta2V5LWZvci1wcm9kdWN0aW9uLWVudmlyb25tZW50LTUxMmJpdHM=
+    ports:
+      - "8080:8080"
+    networks:
+      - banking_net
+
+  # ============================================================================
+  # 3. React Frontend with Nginx Reverse Proxy
+  # ============================================================================
+  banking_frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: banking_frontend
+    restart: unless-stopped
+    depends_on:
+      - banking_backend
+    ports:
+      - "80:80"
+    networks:
+      - banking_net
+
+# ==============================================================================
+# Persistent Volumes & Network Topology
+# ==============================================================================
+volumes:
+  pgdata:
+    driver: local
+
+networks:
+  banking_net:
+    driver: bridge
